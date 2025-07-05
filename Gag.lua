@@ -18,7 +18,8 @@ local petNames = {
     "Dragonfly",
     "Disco Bee",
     "Queen Bee",
-    "Butterfly"
+    "Butterfly",
+    "Toucan"
 }
 
 -- 🔍 指定された名前のモデルか確認（大小区別なし）
