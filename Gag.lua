@@ -1,60 +1,69 @@
--- KRNL用 Lua Script（Grow a Garden）
--- 読み込み時に特定のペットを収納し、その後植物に水をやり続ける
+-- Grow a Garden GUI Tool by ChatGPT
+-- 教育目的のみで使用してください
 
--- Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local Replicated = game:GetService("ReplicatedStorage")
+local Garden = workspace:WaitForChild("GardenPlots")
 
-local player = Players.LocalPlayer
+-- UI作成
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "GrowAGardenTool"
 
--- RemoteEvents（※本番ではRemoteの名前をSpy等で確認要）
-local storePetEvent = ReplicatedStorage:WaitForChild("StorePet")
-local waterPlantEvent = ReplicatedStorage:WaitForChild("WaterPlant")
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 250, 0, 180)
+Frame.Position = UDim2.new(0, 50, 0, 100)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.BorderSizePixel = 0
 
--- 🌟 対象ペット名一覧（必要に応じて追加・編集可能）
-local petNames = {
-    "Raccoon",
-    "Dragonfly",
-    "Disco Bee",
-    "Queen Bee",
-    "Butterfly",
-    "Toucan"
-}
-
--- 🔍 指定された名前のモデルか確認（大小区別なし）
-local function isTargetPet(modelName)
-    for _, name in ipairs(petNames) do
-        if string.lower(modelName) == string.lower(name) then
-            return true
-        end
-    end
-    return false
+local function createButton(text, yPos, callback)
+    local Button = Instance.new("TextButton", Frame)
+    Button.Size = UDim2.new(0, 230, 0, 40)
+    Button.Position = UDim2.new(0, 10, 0, yPos)
+    Button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.SourceSansBold
+    Button.TextSize = 20
+    Button.Text = text
+    Button.MouseButton1Click:Connect(callback)
+    return Button
 end
 
--- 📦 ペットを探してインベントリに収納
-local function storeAllPets()
-    for _, obj in pairs(Workspace:GetChildren()) do
-        if obj:IsA("Model") and isTargetPet(obj.Name) then
-            -- Remoteで収納実行
-            storePetEvent:FireServer(obj)
-            wait(0.1)
-        end
-    end
-end
+-- 機能のトグル状態
+local speedEnabled = false
+local autoWaterEnabled = false
+local autoWaterLoop
 
--- 💧 自動で水やり
-local function autoWaterPlants()
-    while true do
-        wait(2)
-        for _, plant in pairs(Workspace:GetChildren()) do
-            if plant:IsA("Model") and plant:FindFirstChild("NeedsWater") then
-                waterPlantEvent:FireServer(plant)
+-- 高速移動トグル
+createButton("🏃 高速移動 ON/OFF", 10, function()
+    speedEnabled = not speedEnabled
+    LocalPlayer.Character.Humanoid.WalkSpeed = speedEnabled and 100 or 16
+end)
+
+-- 自動水やりトグル
+createButton("💧 自動水やり ON/OFF", 60, function()
+    autoWaterEnabled = not autoWaterEnabled
+    if autoWaterEnabled then
+        autoWaterLoop = task.spawn(function()
+            while autoWaterEnabled do
+                for _, plot in pairs(Garden:GetChildren()) do
+                    if plot:FindFirstChild("NeedsWater") and plot.NeedsWater.Value == true then
+                        Replicated:WaitForChild("RemoteEvents"):WaitForChild("WaterPlant"):FireServer(plot)
+                    end
+                end
+                wait(2)
             end
+        end)
+    else
+        if autoWaterLoop then
+            task.cancel(autoWaterLoop)
         end
     end
-end
+end)
 
--- 🔁 実行開始
-storeAllPets()
-autoWaterPlants()
+-- UI削除・終了
+createButton("❌ ツール終了", 110, function()
+    if autoWaterLoop then task.cancel(autoWaterLoop) end
+    LocalPlayer.Character.Humanoid.WalkSpeed = 16
+    ScreenGui:Destroy()
+end)
